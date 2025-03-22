@@ -4,19 +4,25 @@ const axios = require('axios');
 const app = express();
 app.use(express.json());
 
-app.post('/v1/completions', async (req, res) => {
+app.post('/v1/chat/completions', async (req, res) => {
   try {
-    const { model, prompt, max_tokens } = req.body;
+    const { model, messages, temperature } = req.body;
 
-    // Call the upstream API
+    // Extract the user's message (last message in the array)
+    const userMessage = messages.find(msg => msg.role === 'user');
+    if (!userMessage) {
+      throw new Error("No user message found in the request");
+    }
+
+    // Call the upstream API with the user's message
     const response = await axios.post('https://api-provider-b5s7.onrender.com/api/answer', {
-      prompt,
-      model
+      prompt: userMessage.content,
+      model: model
     }, {
       headers: {
         'Content-Type': 'application/json'
       },
-      timeout: 55000 // 5 seconds timeout
+      timeout: 5000 // 5 seconds timeout
     });
 
     // Log the upstream API's response for debugging
@@ -27,25 +33,26 @@ app.post('/v1/completions', async (req, res) => {
       throw new Error("Invalid response from upstream API: Missing 'answer' field");
     }
 
-    // Use the entire `answer` field as-is
-    const answer = response.data.answer;
-
-    // Transform the response to match OpenAI's format
+    // Transform the response to match OpenAI's chat/completions format
     const openaiResponse = {
-      id: "cmpl-12345",
-      object: "text_completion",
+      id: "chatcmpl-12345",
+      object: "chat.completion",
       created: Math.floor(Date.now() / 1000),
-      model: "gpt-4o", // Change the model to "gpt-4"
-      choices: [{
-        text: answer,
-        index: 0,
-        logprobs: null,
-        finish_reason: "length"
-      }],
+      model: model || "gpt-4o", // Use the requested model or default to "gpt-4o"
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: "assistant",
+            content: response.data.answer // Use the upstream API's answer
+          },
+          finish_reason: "stop"
+        }
+      ],
       usage: {
-        prompt_tokens: prompt.split(' ').length,
-        completion_tokens: answer.split(' ').length,
-        total_tokens: prompt.split(' ').length + answer.split(' ').length
+        prompt_tokens: userMessage.content.split(' ').length,
+        completion_tokens: response.data.answer.split(' ').length,
+        total_tokens: userMessage.content.split(' ').length + response.data.answer.split(' ').length
       }
     };
 
