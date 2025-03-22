@@ -1,9 +1,15 @@
 const express = require('express');
 const axios = require('axios');
-const { v4: uuidv4 } = require('uuid'); // For generating unique IDs
 
 const app = express();
 app.use(express.json());
+
+// Function to generate a unique ID
+function generateUniqueId() {
+  const timestamp = Date.now().toString(36); // Convert timestamp to base-36 string
+  const random = Math.random().toString(36).substring(2, 8); // Random string
+  return `chatcmpl-${timestamp}-${random}`; // Combine timestamp and random string
+}
 
 app.post('/v1/chat/completions', async (req, res) => {
   try {
@@ -35,7 +41,7 @@ app.post('/v1/chat/completions', async (req, res) => {
     }
 
     // Generate a unique ID for the response
-    const responseId = `chatcmpl-${uuidv4()}`;
+    const responseId = generateUniqueId();
 
     // Transform the response to match OpenAI's chat/completions format
     const openaiResponse = {
