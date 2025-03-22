@@ -1,5 +1,6 @@
 const express = require('express');
 const axios = require('axios');
+const { v4: uuidv4 } = require('uuid'); // For generating unique IDs
 
 const app = express();
 app.use(express.json());
@@ -33,12 +34,16 @@ app.post('/v1/chat/completions', async (req, res) => {
       throw new Error("Invalid response from upstream API: Missing 'answer' field");
     }
 
+    // Generate a unique ID for the response
+    const responseId = `chatcmpl-${uuidv4()}`;
+
     // Transform the response to match OpenAI's chat/completions format
     const openaiResponse = {
-      id: "chatcmpl-12345",
+      id: responseId, // Unique ID for the response
       object: "chat.completion",
-      created: Math.floor(Date.now() / 1000),
+      created: Math.floor(Date.now() / 1000), // Current timestamp
       model: model || "gpt-4o", // Use the requested model or default to "gpt-4o"
+      system_fingerprint: "fp_d64a2bdd8a65", // Static system fingerprint (can be customized)
       choices: [
         {
           index: 0,
@@ -46,13 +51,13 @@ app.post('/v1/chat/completions', async (req, res) => {
             role: "assistant",
             content: response.data.answer // Use the upstream API's answer
           },
-          finish_reason: "stop"
+          finish_reason: "stop" // Static finish reason
         }
       ],
       usage: {
-        prompt_tokens: userMessage.content.split(' ').length,
-        completion_tokens: response.data.answer.split(' ').length,
-        total_tokens: userMessage.content.split(' ').length + response.data.answer.split(' ').length
+        prompt_tokens: userMessage.content.split(' ').length, // Approximate token count
+        completion_tokens: response.data.answer.split(' ').length, // Approximate token count
+        total_tokens: userMessage.content.split(' ').length + response.data.answer.split(' ').length // Total tokens
       }
     };
 
