@@ -19,9 +19,12 @@ app.post('/v1/completions', async (req, res) => {
       timeout: 55000 // 5 seconds timeout
     });
 
+    // Log the upstream API's response for debugging
+    console.log("Upstream API response:", response.data);
+
     // Check if the response contains the expected field
     if (!response.data || !response.data.answer) {
-      throw new Error("Invalid response from upstream API");
+      throw new Error("Invalid response from upstream API: Missing 'answer' field");
     }
 
     // Use the entire `answer` field as-is
@@ -32,7 +35,7 @@ app.post('/v1/completions', async (req, res) => {
       id: "cmpl-12345",
       object: "text_completion",
       created: Math.floor(Date.now() / 1000),
-      model: model,
+      model: "gpt-4o", // Change the model to "gpt-4"
       choices: [{
         text: answer,
         index: 0,
