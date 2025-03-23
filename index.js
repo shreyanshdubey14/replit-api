@@ -4,6 +4,14 @@ const axios = require('axios');
 const app = express();
 app.use(express.json());
 
+// Enable CORS for all routes
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*'); // Allow all origins (or specify your client's origin)
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  next();
+});
+
 // Function to generate a unique ID
 function generateUniqueId() {
   const timestamp = Date.now().toString(36); // Convert timestamp to base-36 string
@@ -29,7 +37,7 @@ app.post('/v1/chat/completions', async (req, res) => {
       headers: {
         'Content-Type': 'application/json'
       },
-      timeout: 5000 // 5 seconds timeout
+      timeout: 55000 // 55 seconds timeout
     });
 
     // Log the upstream API's response for debugging
