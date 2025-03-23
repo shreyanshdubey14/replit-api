@@ -12,6 +12,9 @@ app.use((req, res, next) => {
   next();
 });
 
+// In-memory storage for conversation history
+const conversationHistory = new Map();
+
 // Function to generate a unique ID
 function generateUniqueId() {
   const timestamp = Date.now().toString(36); // Convert timestamp to base-36 string
@@ -26,18 +29,33 @@ app.post('/v1/chat/completions', async (req, res) => {
     // Extract the user's message (last message in the array)
     const userMessage = messages.find(msg => msg.role === 'user');
     if (!userMessage) {
-      throw new Error("No user message found in the request");
+      return res.status(400).json({
+        error: "No user message found in the request"
+      });
     }
 
-    // Call the upstream API with the user's message
+    // Get or create conversation history for the session
+    const sessionId = req.headers['session-id'] || 'default-session'; // Use a session ID to track conversations
+    let history = conversationHistory.get(sessionId) || [];
+
+    // Add the latest user message to the history
+    history.push(userMessage);
+
+    // Log the request body being sent to the upstream API
+    console.log("Sending request to upstream API:", {
+      prompt: userMessage.content, // Send only the latest user message
+      model: model
+    });
+
+    // Call the upstream API with the latest user message
     const response = await axios.post('https://api-provider-b5s7.onrender.com/api/answer', {
-      prompt: userMessage.content,
+      prompt: userMessage.content, // Send only the latest user message
       model: model
     }, {
       headers: {
         'Content-Type': 'application/json'
       },
-      timeout: 55000 // 55 seconds timeout
+      timeout: 55000 // 5 seconds timeout
     });
 
     // Log the upstream API's response for debugging
@@ -47,6 +65,14 @@ app.post('/v1/chat/completions', async (req, res) => {
     if (!response.data || !response.data.answer) {
       throw new Error("Invalid response from upstream API: Missing 'answer' field");
     }
+
+    // Add the assistant's response to the conversation history
+    const assistantMessage = {
+      role: "assistant",
+      content: response.data.answer
+    };
+    history.push(assistantMessage);
+    conversationHistory.set(sessionId, history);
 
     // Generate a unique ID for the response
     const responseId = generateUniqueId();
@@ -61,10 +87,7 @@ app.post('/v1/chat/completions', async (req, res) => {
       choices: [
         {
           index: 0,
-          message: {
-            role: "assistant",
-            content: response.data.answer // Use the upstream API's answer
-          },
+          message: assistantMessage, // Use the assistant's response
           finish_reason: "stop" // Static finish reason
         }
       ],
